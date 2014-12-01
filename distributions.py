@@ -5,7 +5,7 @@ from numpy.linalg import inv, cholesky, det
 from scipy.special import multigammaln
 from scipy.stats import chi2
 import scipy.stats as stats
-from linalg import pdinv, ensure_2d
+from linalg import pdinv
 
 #some functions taken from https://gist.github.com/jfrelinger/2638485
 
@@ -93,7 +93,7 @@ class mvnorm(object):
         return self.freeze.logpdf(x)
     
     def logpdf_grad(self, x):
-        return self.Ki.dot(self.atleast_2d(x) - self.mu)
+        return self.Ki.dot(np.atleast_1d(x) - self.mu)
     
     def rvs(self, *args, **kwargs):
         return self.freeze.rvs(*args, **kwargs)
