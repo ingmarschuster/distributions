@@ -1,11 +1,13 @@
 from __future__ import division, print_function, absolute_import
 import numpy as np
+from numpy import log, exp
 import numpy.random as npr
-from numpy.linalg import inv, cholesky, det
+from numpy.linalg import inv, cholesky
 from scipy.special import multigammaln
 from scipy.stats import chi2
 import scipy.stats as stats
-from linalg import pdinv, ensure_2d
+from linalg import pdinv
+
 
 #some functions taken from https://gist.github.com/jfrelinger/2638485
 
@@ -93,7 +95,7 @@ class mvnorm(object):
         return self.freeze.logpdf(x)
     
     def logpdf_grad(self, x):
-        return self.Ki.dot(self.atleast_2d(x) - self.mu)
+        return self.Ki.dot(np.atleast_1d(x) - self.mu)
     
     def rvs(self, *args, **kwargs):
         return self.freeze.rvs(*args, **kwargs)
@@ -101,7 +103,50 @@ class mvnorm(object):
     @classmethod
     def fit(cls, samples): # observations expected in rows
         mu = samples.mean(0)
-        return (mu, ensure_2d(np.cov(samples, rowvar = 0)))
+        return (mu, np.atleast_2d(np.cov(samples, rowvar = 0)))
+        
+
+class mvt(object):
+    def __init__(self, mu, K, df):
+        mu = np.atleast_1d(mu)
+        K = np.atleast_2d(K)
+        assert(np.prod(mu.shape) == K.shape[0] )
+        assert(K.shape[0] == K.shape[1])
+        self.mu = mu
+        self.K = K
+        self.df = df
+        self.dim = K.shape[0]
+        (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
+        self.freeze_mvn = stats.multivariate_normal(mu, K)
+        self.freeze_chi2 = stats.chi2(self.df)
+        
+    def ppf(self, component_cum_prob):
+        #this is a pointwise ppf
+        std_norm = stats.norm(0, 1)
+        rval = []
+        for r in range(component_cum_prob.shape[0]):
+            samp_mvn_0mu = self.L.dot(std_norm.ppf(component_cum_prob[r, :-1]))
+            samp_chi2 = self.freeze_chi2.ppf(component_cum_prob[r, -1])
+            samp_mvt_0mu = samp_mvn_0mu * np.sqrt(self.df / samp_chi2)
+            rval.append(self.mu + samp_mvt_0mu)
+        return np.array(rval)
+    
+    def logpdf(self, x):
+        raise(RuntimeError())
+        return self.freeze_mvn.logpdf(x)
+    
+    def logpdf_grad(self, x):
+        raise(RuntimeError())
+        return self.Ki.dot(np.atleast_1d(x) - self.mu)
+    
+    def rvs(self, n = 1):
+        return self.ppf(stats.uniform.rvs(size = (n, self.dim+1)))
+    
+    @classmethod
+    def fit(cls, samples): # observations expected in rows
+        raise(RuntimeError())
+        mu = samples.mean(0)
+        return (mu, np.atleast_2d(np.cov(samples, rowvar = 0)))
 
 
 class norm_invwishart(object):
