@@ -3,7 +3,7 @@ import numpy as np
 from numpy import log, exp
 import numpy.random as npr
 from numpy.linalg import inv, cholesky
-from scipy.special import multigammaln
+from scipy.special import multigammaln, gammaln
 from scipy.stats import chi2
 import scipy.stats as stats
 from linalg import pdinv
@@ -96,7 +96,8 @@ class mvnorm(object):
         return self.freeze.logpdf(x)
     
     def logpdf_grad(self, x):
-        return self.Ki.dot(np.atleast_1d(x) - self.mu)
+        sh = (np.prod(self.mu.shape), 1)
+        return -self.Ki.dot(x.reshape(sh) - self.mu.reshape(sh))
     
     def rvs(self, *args, **kwargs):
         return self.freeze.rvs(*args, **kwargs)
@@ -120,6 +121,11 @@ class mvt(object):
         (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         self.freeze_mvn = stats.multivariate_normal(mu, K)
         self.freeze_chi2 = stats.chi2(self.df)
+        self.lpdf_const = (gammaln((self.df + self.dim) / 2)
+                           -(gammaln(self.df/2)
+                             + (log(self.df)+log(np.pi)) * self.dim*0.5
+                             + self.logdet * 0.5)
+                           )
         
     def ppf(self, component_cum_prob):
         #this is a pointwise ppf
@@ -133,12 +139,14 @@ class mvt(object):
         return np.array(rval)
     
     def logpdf(self, x):
-        raise(RuntimeError())
-        return self.freeze_mvn.logpdf(x)
+        diff = (x - self.mu).reshape((np.prod(self.mu.shape), 1))
+        c = diff.T.dot(self.Ki).dot(diff)
+        return self.lpdf_const - 0.5*(self.df+self.dim)*log(1+c/self.df)
     
     def logpdf_grad(self, x):
-        raise(RuntimeError())
-        return self.Ki.dot(np.atleast_1d(x) - self.mu)
+        diff = (x - self.mu).reshape((np.prod(self.mu.shape), 1))
+        var_diff = self.Ki.dot(diff)/self.df
+        return -(self.df + self.dim)/(1+diff.T.dot(var_diff)) * var_diff.flat[:]
     
     def rvs(self, n = 1):
         return self.ppf(stats.uniform.rvs(size = (n, self.dim+1)))
@@ -207,6 +215,17 @@ def test_invwishart_logpdf():
     a = 2 * np.eye(5)
     assert(abs(invwishart_logpdf(a,a,6.1) + 30.12885519) < 1*10**-7)
 
+
+def test_mvt_mvn_logpdf_n_grad():
+    import scipy.optimize as opt
+    # values from R-package bayesm, function dmvt(6.1, a, a)
+    for (mu, var, df, lpdf) in [(np.array((1,1)), np.eye(2),   3, -1.83787707) ,
+                                (np.array((1,2)), np.eye(2)*3, 3, -2.93648936)]:
+        for dist in [ mvnorm(mu,var), mvt(mu,var,df)]:
+            ad = np.abs(dist.logpdf(mu) -lpdf )   
+            assert(ad < 10**-8)
+            assert(np.all(opt.check_grad(lambda x: dist.logpdf(x), lambda x: dist.logpdf_grad(x), mu-1) < 10**-17))
+    
     
 if __name__ == '__main__':
     npr.seed(1)
@@ -215,6 +234,6 @@ if __name__ == '__main__':
     #print invwishart_rv(nu,a)
     x = np.array([ invwishart_rv(nu,a) for i in range(20000)])
     nux = np.array([invwishart_prec_rv(nu,a) for i in range(20000)])
-    print(x.shape)
-    print(np.mean(x,0),"\n", inv(np.mean(nux,0)))
+   # print(x.shape)
+    #print(np.mean(x,0),"\n", inv(np.mean(nux,0)))
     #print inv(a)/(nu-a.shape[0]-1)
