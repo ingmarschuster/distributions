@@ -23,7 +23,7 @@ class mvnorm(object):
         
         self.lpdf_const = (-0.5 * (self.dim * np.log(2 * np.pi)
                                    + self.logdet)).flat[:]
-        self.freeze = stats.multivariate_normal(mu, K)
+        #self.freeze = stats.multivariate_normal(mu, K)
         
     def ppf(self, component_cum_prob):
         #this is a pointwise ppf
@@ -43,11 +43,10 @@ class mvnorm(object):
         assert(pdf or grad)
         
         d = (x - self.mu).reshape((np.prod(self.mu.shape), 1))
-        Ki_d = self.Ki.dot(d)
-        d_Ki_d = d.T.dot(Ki_d).flat[:]
+        Ki_d = self.Ki.dot(d)        
         
         if pdf:
-            res_pdf = self.lpdf_const - 0.5 * d_Ki_d
+            res_pdf = self.lpdf_const - 0.5 * d.T.dot(Ki_d).flat[:]
             if not grad:
                 return res_pdf
         if grad:
@@ -57,7 +56,8 @@ class mvnorm(object):
         return (res_pdf, res_grad)    
     
     def rvs(self, *args, **kwargs):
-        return self.freeze.rvs(*args, **kwargs)
+        return self.ppf(stats.uniform.rvs(size = (n, self.dim)))
+        #return self.freeze.rvs(*args, **kwargs)
     
     @classmethod
     def fit(cls, samples, return_instance = False): # observations expected in rows
