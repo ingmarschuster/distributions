@@ -6,12 +6,12 @@ from numpy.linalg import inv, cholesky
 from scipy.special import multigammaln, gammaln
 from scipy.stats import chi2
 import scipy.stats as stats
-from linalg import pdinv
+from .linalg import pdinv, diag_dot
 
 
 class mvnorm(object):
     def __init__(self, mu, K): 
-        mu = np.atleast_1d(mu).flat[:]
+        mu = np.atleast_1d(mu).flatten()
         K = np.atleast_2d(K) 
         assert(np.prod(mu.shape) == K.shape[0] )
         assert(K.shape[0] == K.shape[1])
@@ -21,8 +21,8 @@ class mvnorm(object):
         self.dim = K.shape[0]        
         (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         
-        self.lpdf_const = (-0.5 * (self.dim * np.log(2 * np.pi)
-                                   + self.logdet)).flat[:]
+        self.lpdf_const = np.float(-0.5 * (self.dim * np.log(2 * np.pi)
+                                           + self.logdet))
         #self.freeze = stats.multivariate_normal(mu, K)
         
     def ppf(self, component_cum_prob):
@@ -42,20 +42,32 @@ class mvnorm(object):
     def log_pdf_and_grad(self, x, pdf = True, grad = True):
         assert(pdf or grad)
         
-        d = (x - self.mu).reshape((np.prod(self.mu.shape), 1))
+        x = np.atleast_2d(x)
+        if x.shape[1] == self.mu.size:
+            x = x.T
+        else:
+            assert(x.shape[1] == self.mu.size
+                   or x.shape[0] == self.mu.size)
+        
+        d = x - np.atleast_2d(self.mu).T
         Ki_d = self.Ki.dot(d)        
         
         if pdf:
-            res_pdf = self.lpdf_const - 0.5 * d.T.dot(Ki_d).flat[:]
+            res_pdf = (self.lpdf_const - 0.5 * diag_dot(d.T, Ki_d)).T
+            if res_pdf.size == 1:
+                res_pdf = np.float(res_pdf)
+#            assert()
             if not grad:
                 return res_pdf
         if grad:
-            res_grad = - Ki_d.flat[:]
+            res_grad = - Ki_d.T #.flat[:]
+            if res_grad.shape[0] <= 1:
+                res_grad = res_grad.flatten()
             if not pdf:
                 return res_grad
         return (res_pdf, res_grad)    
     
-    def rvs(self, *args, **kwargs):
+    def rvs(self, n=1):
         return self.ppf(stats.uniform.rvs(size = (n, self.dim)))
         #return self.freeze.rvs(*args, **kwargs)
     
@@ -71,7 +83,7 @@ class mvnorm(object):
 
 class mvt(object):
     def __init__(self, mu, K, df):
-        mu = np.atleast_1d(mu)
+        mu = np.atleast_1d(mu).flatten()
         K = np.atleast_2d(K)
         assert(np.prod(mu.shape) == K.shape[0] )
         assert(K.shape[0] == K.shape[1])
@@ -83,11 +95,11 @@ class mvt(object):
         (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         self.freeze_mvn = stats.multivariate_normal(mu, K)
         self.freeze_chi2 = stats.chi2(self.df)
-        self.lpdf_const = (gammaln((self.df + self.dim) / 2)
-                           -(gammaln(self.df/2)
-                             + (log(self.df)+log(np.pi)) * self.dim*0.5
-                             + self.logdet * 0.5)
-                           ).flat[:]
+        self.lpdf_const = np.float(gammaln((self.df + self.dim) / 2)
+                                   -(gammaln(self.df/2)
+                                     + (log(self.df)+log(np.pi)) * self.dim*0.5
+                                     + self.logdet * 0.5)
+                                   )
         
     def ppf(self, component_cum_prob):
         #this is a pointwise ppf
@@ -109,16 +121,28 @@ class mvt(object):
     def log_pdf_and_grad(self, x, pdf = True, grad = True):
         assert(pdf or grad)
         
-        d = (x - self.mu).reshape((np.prod(self.mu.shape), 1))
+        x = np.atleast_2d(x)
+        if x.shape[1] == self.mu.size:
+            x = x.T
+        else:
+            assert(x.shape[1] == self.mu.size
+                   or x.shape[0] == self.mu.size)
+        
+        d = x - np.atleast_2d(self.mu).T
         Ki_d_scal = self.Ki.dot(d) / self.df
-        d_Ki_d_scal_1 = d.T.dot(Ki_d_scal).flat[:] + 1
+        d_Ki_d_scal_1 = diag_dot(d.T, Ki_d_scal) + 1.
         
         if pdf:
-            res_pdf = self.lpdf_const - 0.5 * self._df_dim * log(d_Ki_d_scal_1)
+            res_pdf = (self.lpdf_const 
+                       - 0.5 * self._df_dim * log(d_Ki_d_scal_1)).flatten()
+            if res_pdf.size == 1:
+                res_pdf = np.float(res_pdf)
             if not grad:
                 return res_pdf
         if grad:
-            res_grad = -self._df_dim/d_Ki_d_scal_1 * Ki_d_scal.flat[:]
+            res_grad = -self._df_dim/np.atleast_2d(d_Ki_d_scal_1).T * Ki_d_scal.T
+            if res_grad.shape[0] <= 1:
+                res_grad = res_grad.flatten()
             if not pdf:
                 return res_grad
         return (res_pdf, res_grad)
@@ -145,4 +169,10 @@ def test_mvt_mvn_logpdf_n_grad():
             ad = np.abs(dist.logpdf(mu) -lpdf )   
             assert(ad < 10**-8)
             assert(np.all(opt.check_grad(dist.logpdf, dist.logpdf_grad, mu-1) < 10**-7))
-            #assert()
+    
+            al = [(5,4), (3,3), (1,1)]
+            (cpdf, cgrad) = dist.log_pdf_and_grad(al)
+            (spdf, sgrad) = zip(*[dist.log_pdf_and_grad(m) for m in al])
+            (spdf, sgrad) = (np.array(spdf), np.array(sgrad)) 
+            assert(np.all(cpdf == spdf) and np.all(cpdf == spdf))
+            assert(sgrad.shape == cgrad.shape)

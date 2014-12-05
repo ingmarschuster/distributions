@@ -340,6 +340,9 @@ def ppca_missing_data_at_random(Y, Q, iters=100):
     return np.asarray_chkfinite(X), np.asarray_chkfinite(W), nu
 
 
+def diag_dot(a, b):
+    return (a*b.T).sum(1)
+
 def tdot_numpy(mat, out=None):
     return np.dot(mat, mat.T, out)
 
