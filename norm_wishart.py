@@ -6,7 +6,7 @@ from numpy.linalg import inv, cholesky
 from scipy.special import multigammaln, gammaln
 from scipy.stats import chi2
 import scipy.stats as stats
-from distributions.linalg import pdinv
+from .linalg import pdinv
 
 
 #some functions taken from https://gist.github.com/jfrelinger/2638485
