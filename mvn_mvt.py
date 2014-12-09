@@ -95,7 +95,7 @@ class mvnorm(object):
         
 
 class mvt(object):
-    def __init__(self, mu, K, df, Ki = None, logdet_K = None):
+    def __init__(self, mu, K, df, Ki = None, logdet_K = None, L = None):
         mu = np.atleast_1d(mu).flatten()
         K = np.atleast_2d(K)
         assert(np.prod(mu.shape) == K.shape[0] )
