@@ -35,6 +35,9 @@ class mvnorm(object):
         
         self.lpdf_const = -0.5 *np.float(self.dim * np.log(2 * np.pi)
                                            + self.logdet)
+                                           
+    def set_mu(self, mu):
+        self.mu = mu
         
     def ppf(self, component_cum_prob):
         #this is a pointwise ppf
@@ -61,15 +64,17 @@ class mvnorm(object):
                    or x.shape[0] == self.mu.size)
         
         d = x - np.atleast_2d(self.mu).T
-        Ki_d = self.Ki.dot(d)        
+        Ki_d = self.Ki.dot(d)        #vector
         
         if pdf:
+            # vector times vector
             res_pdf = (self.lpdf_const - 0.5 * diag_dot(d.T, Ki_d)).T
             if res_pdf.size == 1:
                 res_pdf = np.float(res_pdf)
             if not grad:
                 return res_pdf
         if grad:
+            # nothing
             res_grad = - Ki_d.T #.flat[:]
             if res_grad.shape[0] <= 1:
                 res_grad = res_grad.flatten()
@@ -126,6 +131,9 @@ class mvt(object):
                                      + (log(self.df)+log(np.pi)) * self.dim*0.5
                                      + self.logdet * 0.5)
                                    )
+    
+    def set_mu(self, mu):
+        self.mu = mu
         
     def ppf(self, component_cum_prob):
         #this is a pointwise ppf
@@ -155,17 +163,19 @@ class mvt(object):
                    or x.shape[0] == self.mu.size)
         
         d = x - np.atleast_2d(self.mu).T
-        Ki_d_scal = self.Ki.dot(d) / self.df
-        d_Ki_d_scal_1 = diag_dot(d.T, Ki_d_scal) + 1.
+        Ki_d_scal = self.Ki.dot(d) / self.df          #vector
+        d_Ki_d_scal_1 = diag_dot(d.T, Ki_d_scal) + 1. #scalar
         
         if pdf:
+            # purely scalar multiplication
             res_pdf = (self.lpdf_const 
-                       - 0.5 * self._df_dim * log(d_Ki_d_scal_1)).flatten()
+                       - 0.5 * self._df_dim * log(d_Ki_d_scal_1)).flatten() 
             if res_pdf.size == 1:
                 res_pdf = np.float(res_pdf)
             if not grad:
                 return res_pdf
         if grad:
+            #scalar times vector
             res_grad = -self._df_dim/np.atleast_2d(d_Ki_d_scal_1).T * Ki_d_scal.T
             
             if res_grad.shape[0] <= 1:
