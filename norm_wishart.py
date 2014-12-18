@@ -77,8 +77,24 @@ def norm_invwishart_logpdf(mu, K, K0, nu0, mu0, kappa0):
 
 class norm_invwishart(object):
     def __init__(self, K0, nu0, mu0, kappa0):
-        K0 = np.array(K0)
-        mu0 = np.array(mu0)
+        """
+        Construct an object representing a normal-inverse_wishart distribution
+        
+        Parameters
+        ==========
+        K0 - positive definite inverse scale matrix (DxD)
+        nu0 - degrees of freedom for the inverse wishart part (nu0 > D - 1)
+        mu0 - location parameter
+        kappa0 - prior measurements of scale (kappa0 > 0)
+        
+        Returns
+        =======
+        object representing a normal-inverse_wishart distribution
+        """
+        K0 = np.atleast_2d(K0)
+        mu0 = np.atleast_1d(mu0).flatten()
+        assert(nu0 > mu0.size - 1)
+        assert(kappa0 > 0)
         assert(len(K0.shape) == 2 and
                K0.shape[0] == K0.shape[1] and
                K0.shape[0] == np.max(mu0.shape))
@@ -107,6 +123,18 @@ class norm_invwishart(object):
         
 class invwishart(object):
     def __init__(self, K0, nu0):
+        """
+        Construct an object representing an inverse wishart distribution
+        
+        Parameters
+        ==========
+        K0 - positive definite inverse scale matrix (DxD)
+        nu0 - degrees of freedom for the inverse wishart part (nu0 > D - 1)
+        
+        Returns
+        =======
+        object representing an inverse wishart distribution
+        """
         K0 = np.atleast_2d(K0)
         nu0 = np.array(nu0)
         assert(len(K0.shape) == 2 and

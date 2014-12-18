@@ -19,19 +19,7 @@ class mvnorm(object):
         self.mu = mu
         self.K = K
         self.dim = K.shape[0]        
-        #(self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
-        if Ki is None:
-            self.Ki = np.linalg.inv(K)
-        else:
-            self.Ki = Ki
-        if logdet_K is None:
-            self.logdet = np.linalg.slogdet(K)[1]
-        else:
-            self.logdet = logdet_K
-        if L is None:
-            self.L = np.linalg.cholesky(K)
-        else:
-            self.L = L
+        (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         
         self.lpdf_const = -0.5 *np.float(self.dim * np.log(2 * np.pi)
                                            + self.logdet)
@@ -110,19 +98,7 @@ class mvt(object):
         self.df = df
         self.dim = K.shape[0]
         self._df_dim = self.df + self.dim
-        #(self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
-        if Ki is None:
-            self.Ki = np.linalg.inv(K)
-        else:
-            self.Ki = Ki
-        if logdet_K is None:
-            self.logdet = np.linalg.slogdet(K)[1]
-        else:
-            self.logdet = logdet_K
-        if L is None:
-            self.L = np.linalg.cholesky(K)
-        else:
-            self.L = L
+        (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         
         self.freeze_mvn = stats.multivariate_normal(mu, K)
         self.freeze_chi2 = stats.chi2(self.df)

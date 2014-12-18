@@ -167,13 +167,19 @@ def pdinv(A, *args):
     :rval logdet: the log of the determinant of A
     :rtype logdet: float64
     """
-    L = jitchol(A, *args)
-    logdet = 2.*np.sum(np.log(np.diag(L)))
-    Li = chol_inv(L)
-    Ai, _ = lapack.dpotri(L)
-    # Ai = np.tril(Ai) + np.tril(Ai,-1).T
-    symmetrify(Ai)
-
+    try:
+        Ai = np.linalg.inv(A)
+        logdet = np.linalg.slogdet(A)[1]
+        L = np.linalg.cholesky(A)
+        Li = chol_inv(L)
+    except linalg.LinAlgError:
+        L = jitchol(A, *args)
+        logdet = 2.*np.sum(np.log(np.diag(L)))
+        Li = chol_inv(L)
+        Ai, _ = lapack.dpotri(L)
+        # Ai = np.tril(Ai) + np.tril(Ai,-1).T
+        symmetrify(Ai)
+    
     return Ai, L, Li, logdet
 
 
