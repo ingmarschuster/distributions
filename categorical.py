@@ -30,11 +30,3 @@ class categorical(object):
             
     def rvs(self, indic = False):
         return self.ppf(stats.uniform.rvs(), indic = indic)
-
-def test_categorical():
-    dist = categorical(np.array((0.5, 0.3,0.1,0.1)))
-    #assert(dist.ppf(0.4) == 0 and dist.ppf(0.6) == 1 and dist.ppf(0.95) == 3)
-    for (p, idx) in [(0.4, 0), (0.5, 0), (0.6, 1), (0.95, 3)]:
-        assert(dist.ppf(p) == idx)
-        assert(np.argmax(dist.ppf(p, indic = True)) == idx)
-    print(dist.rvs())

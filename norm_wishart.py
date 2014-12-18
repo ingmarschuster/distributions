@@ -118,27 +118,3 @@ class invwishart(object):
             
     def logpdf(self, x):
         return invwishart_logpdf(x, self.K0, self.nu0)
-        
-#################################
-        
-def test_invwishart_logpdf():
-    # values from R-package bayesm, function lndIWishart(6.1, a, a)
-    a = 4 * np.eye(5)
-    assert(abs(invwishart_logpdf(a,a,6.1) + 40.526062) < 1*10**-5)
-    
-    a = np.eye(5) + np.ones((5,5))
-    assert(abs(invwishart_logpdf(a,a,6.1) + 25.1069258) < 1*10**-6)
-    
-    a = 2 * np.eye(5)
-    assert(abs(invwishart_logpdf(a,a,6.1) + 30.12885519) < 1*10**-7)
-    
-if __name__ == '__main__':
-    npr.seed(1)
-    nu = 5
-    a = np.array([[1,0.5,0],[0.5,1,0],[0,0,1]])
-    #print invwishart_rv(nu,a)
-    x = np.array([ invwishart_rv(nu,a) for i in range(20000)])
-    nux = np.array([invwishart_prec_rv(nu,a) for i in range(20000)])
-   # print(x.shape)
-    #print(np.mean(x,0),"\n", inv(np.mean(nux,0)))
-    #print inv(a)/(nu-a.shape[0]-1)

@@ -196,31 +196,3 @@ class mvt(object):
         raise(RuntimeError())
         mu = samples.mean(0)
         return (mu, np.atleast_2d(np.cov(samples, rowvar = 0)))
-
-
-###############
-
-
-def test_mvt_mvn_logpdf_n_grad():
-    import scipy.optimize as opt
-    # values from R-package bayesm, function dmvt(6.1, a, a)
-    for (mu, var, df, lpdf) in [(np.array((1,1)), np.eye(2),   3, -1.83787707) ,
-                                (np.array((1,2)), np.eye(2)*3, 3, -2.93648936)]:
-        for dist in [mvt(mu,var,df), mvnorm(mu,var)]:
-            ad = np.abs(dist.logpdf(mu) -lpdf )   
-            assert(ad < 10**-8)
-            assert(np.all(opt.check_grad(dist.logpdf, dist.logpdf_grad, mu-1) < 10**-7))
-    
-            al = [(5,4), (3,3), (1,1)]
-            (cpdf, cgrad) = dist.log_pdf_and_grad(al)
-            (spdf, sgrad) = zip(*[dist.log_pdf_and_grad(m) for m in al])
-            (spdf, sgrad) = (np.array(spdf), np.array(sgrad)) 
-            assert(np.all(cpdf == spdf) and np.all(cpdf == spdf))
-            assert(sgrad.shape == cgrad.shape)
-            
-    mu = np.array([ 11.56966913,   8.66926112])
-    obs = np.array([[ 1.31227875, -2.88454287],[ 2.14283061, -2.97526902]])
-    var = np.array([[ 1.44954579, -1.43116137], [-1.43116137,  3.6207941 ]])
-    dist = mvnorm(mu, var)
-    
-    assert(np.all(dist.logpdf(obs) - stats.multivariate_normal(mu, var).logpdf(obs) < 10**-7))
