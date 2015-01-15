@@ -25,9 +25,10 @@ class mvnorm(object):
                                            + self.logdet)
                                            
     def set_mu(self, mu):
-        self.mu = mu
+        self.mu = np.atleast_1d(mu).flatten()
         
     def ppf(self, component_cum_prob):
+        assert(component_cum_prob.shape[1] == self.dim)
         #this is a pointwise ppf
         std_norm = stats.norm(0, 1)
         rval = []
@@ -109,10 +110,11 @@ class mvt(object):
                                    )
     
     def set_mu(self, mu):
-        self.mu = mu
+        self.mu = np.atleast_1d(mu).flatten()
         
     def ppf(self, component_cum_prob):
         #this is a pointwise ppf
+        assert(component_cum_prob.shape[1] == self.dim + 1)
         std_norm = stats.norm(0, 1)
         rval = []
         for r in range(component_cum_prob.shape[0]):

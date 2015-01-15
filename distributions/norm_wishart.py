@@ -83,7 +83,7 @@ class norm_invwishart(object):
         Parameters
         ==========
         K0 - positive definite inverse scale matrix (DxD)
-        nu0 - degrees of freedom for the inverse wishart part (nu0 > D - 1)
+        nu0 - degrees of freedom for the inverse wishart part (nu0 >= D)
         mu0 - location parameter
         kappa0 - prior measurements of scale (kappa0 > 0)
         
