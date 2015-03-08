@@ -14,7 +14,7 @@ from scipy.stats import chi2
 import scipy.stats as stats
 
 from .util import assert_equal
-from .. import mvt, mvnorm
+from distributions import mvt, mvnorm
 
 import scipy.optimize as opt
 
