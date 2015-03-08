@@ -44,6 +44,32 @@ def invwishart_logpdf(X, S, nu):
     log_e_term = - np.dot(S.T.flat, inv(X).flat) / 2 #using an efficient formula for trace(dot(.,.))
     return log_S_term + log_X_term + log_e_term
 
+def wishart_logpdf(X, S, nu):
+    """Compute logpdf of wishart distribution
+    Args:
+        X (p x p matrix): rv value for which to compute logpdf
+        S (p x p matrix): scale matrix parameter of inverse-wishart distribution (psd Matrix)
+        nu: degrees of freedom  nu > p - 1 where p is the dimension of S
+    Returns:
+        float: logpdf of X given parameters S and nu
+    """
+    p = S.shape[0]    
+    assert(len(S.shape) == 2 and
+           S.shape[0] == S.shape[1] and
+           nu > p - 1)
+    if (len(X.shape) != 2 or
+        X.shape[0] != X.shape[1] or
+        X.shape[0] != S.shape[0]):
+        return -np.inf
+    nu_h = nu/2
+    
+    log_S_term = (nu_h * (log(np.linalg.det(S)) + p * log(2))
+                   + multigammaln(nu_h, p))
+    log_X_term = (nu - p - 1) / 2 * log(np.linalg.det(X))
+    log_e_term = - np.dot(inv(S).T.flat, X.flat) / 2 #using an efficient formula for trace(dot(.,.))
+    return log_X_term + log_e_term - log_S_term
+
+
 def wishart_rv(Ki, nu):
     dim = Ki.shape[0]
     chol = cholesky(Ki)

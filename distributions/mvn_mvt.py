@@ -8,6 +8,7 @@ from scipy.stats import chi2
 import scipy.stats as stats
 from .linalg import pdinv, diag_dot
 
+__all__ = ["mvnorm", "mvt"]
 
 class mvnorm(object):
     def __init__(self, mu, K, Ki = None, logdet_K = None, L = None): 
@@ -101,8 +102,7 @@ class mvt(object):
         self._df_dim = self.df + self.dim
         (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         
-        self.freeze_mvn = stats.multivariate_normal(mu, K)
-        self.freeze_chi2 = stats.chi2(self.df)
+        self._freeze_chi2 = stats.chi2(self.df)
         self.lpdf_const = np.float(gammaln((self.df + self.dim) / 2)
                                    -(gammaln(self.df/2)
                                      + (log(self.df)+log(np.pi)) * self.dim*0.5
@@ -119,7 +119,7 @@ class mvt(object):
         rval = []
         for r in range(component_cum_prob.shape[0]):
             samp_mvn_0mu = self.L.dot(std_norm.ppf(component_cum_prob[r, :-1]))
-            samp_chi2 = self.freeze_chi2.ppf(component_cum_prob[r, -1])
+            samp_chi2 = self._freeze_chi2.ppf(component_cum_prob[r, -1])
             samp_mvt_0mu = samp_mvn_0mu * np.sqrt(self.df / samp_chi2)
             rval.append(self.mu + samp_mvt_0mu)
         return np.array(rval)
@@ -169,8 +169,18 @@ class mvt(object):
         else:
             return rval
     
+    def __getstate__(self):
+        from copy import copy
+        rval = copy(self.__dict__)
+        rval.pop("_freeze_chi2")
+        return rval
+    
+    def __setstate__(self, state):
+        self.__dict__ = state
+        self._freeze_chi2 = stats.chi2(self.df)
+    
     @classmethod
     def fit(cls, samples, return_instance = False): # observations expected in rows
-        raise(RuntimeError())
+        raise(NotImplementedError())
         mu = samples.mean(0)
         return (mu, np.atleast_2d(np.cov(samples, rowvar = 0)))

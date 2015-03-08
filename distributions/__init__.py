@@ -5,6 +5,6 @@ Created on Sun Nov 16 12:27:30 2014
 @author: Ingmar Schuster
 """
 from __future__ import absolute_import
-from .categorical import categorical
-from .norm_wishart import invwishart_prec_rv, invwishart_rv, invwishart_logpdf, wishart_rv, norm_invwishart_rv,norm_invwishart_logpdf, invwishart,norm_invwishart
+from .cat_dirichlet import *
+from .norm_wishart import invwishart_prec_rv, invwishart_rv, wishart_logpdf, invwishart_logpdf, wishart_rv, norm_invwishart_rv,norm_invwishart_logpdf, invwishart,norm_invwishart
 from .mvn_mvt import mvnorm, mvt
