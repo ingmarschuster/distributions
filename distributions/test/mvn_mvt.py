@@ -23,7 +23,7 @@ def test_mvt_mvn_logpdf_n_grad():
     for (mu, var, df, lpdf) in [(np.array((1,1)), np.eye(2),   3, -1.83787707) ,
                                 (np.array((1,2)), np.eye(2)*3, 3, -2.93648936)]:
         for dist in [mvt(mu,var,df), mvnorm(mu,var)]:
-            ad = np.abs(dist.logpdf(mu) -lpdf )   
+            ad = np.mean(np.abs(dist.logpdf(mu) -lpdf ))
             assert(ad < 10**-8)
             assert(np.all(opt.check_grad(dist.logpdf, dist.logpdf_grad, mu-1) < 10**-7))
     
@@ -40,7 +40,10 @@ def test_mvt_mvn_logpdf_n_grad():
     dist = mvnorm(mu, var)
     
     assert(np.all(dist.logpdf(obs) - stats.multivariate_normal(mu, var).logpdf(obs) < 10**-7))
-    
+
+def test_mvn_mvt_logpdf_tensor():
+    pass
+
 def test_mvnorm_fit():
     mu = np.array((2,3,4))
     cov = np.array([(20, 3, 2),

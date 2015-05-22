@@ -8,7 +8,23 @@ from scipy.stats import chi2
 import scipy.stats as stats
 from .linalg import pdinv, diag_dot
 
+import sys
+
 __all__ = ["mvnorm", "mvt"]
+
+def shape_match_1d(y, x):
+    """
+    match the shape of y to that of x and return the new y object.
+    """
+    #assert(len(y.shape) == 1)
+    sh = (np.array(x.shape) == np.array(y.shape))
+    if sh.sum() != 1:
+        print("There have been " + str(sh.sum()) + " matches in shape instead of exactly 1. Using first match only.", file=sys.stderr)
+        sh[np.argmax(sh)+1:] = False
+    
+    new_sh = np.ones(sh.shape)
+    new_sh[sh] = y.shape
+    return np.reshape(y, new_sh)
 
 class mvnorm(object):
     def __init__(self, mu, K, Ki = None, logdet_K = None, L = None): 
@@ -50,10 +66,10 @@ class mvnorm(object):
         if x.shape[1] == self.mu.size:
             x = x.T
         else:
-            assert(x.shape[1] == self.mu.size
-                   or x.shape[0] == self.mu.size)
+            assert(np.sum(np.array(x.shape) == self.mu.size)>=1)
         
         d = x - np.atleast_2d(self.mu).T
+
         Ki_d = self.Ki.dot(d)        #vector
         
         if pdf:
@@ -87,7 +103,6 @@ class mvnorm(object):
             return mvnorm(mu, var)
         else:
             return (mu, var)
-        
 
 class mvt(object):
     def __init__(self, mu, K, df, Ki = None, logdet_K = None, L = None):
