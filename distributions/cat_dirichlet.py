@@ -42,6 +42,7 @@ class categorical(object):
         return np.array([self.ppf(stats.uniform.rvs(), indic = indic)
                              for _ in range(size)])
 
+
 class dirichlet(object):
     def __init__(self, p):
         p = np.array(p).flatten()
