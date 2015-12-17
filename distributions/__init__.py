@@ -9,4 +9,5 @@ from .cat_dirichlet import *
 from .stream_cat import *
 from .norm_wishart import invwishart_prec_rv, invwishart_rv, wishart_logpdf, invwishart_logpdf, wishart_rv, norm_invwishart_rv,norm_invwishart_logpdf, invwishart,norm_invwishart
 from .mvn_mvt import mvnorm, mvt
+from .mixture import mixt
 import distributions.transform

@@ -35,12 +35,19 @@ class mvnorm(object):
         
         self.mu = mu
         self.K = K
-        self.dim = K.shape[0]        
+        self.dim = K.shape[0]
+        #(self.Ki, self.logdet) = (np.linalg.inv(K), np.linalg.slogdet(K)[1])
         (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         
         self.lpdf_const = -0.5 *np.float(self.dim * np.log(2 * np.pi)
                                            + self.logdet)
-                                           
+#    def get_theano_logp(self, X):
+#        import theano.tensor as T
+#        T.matrix("log")
+#        d = x - np.atleast_2d(self.mu).T
+#        return (self.lpdf_const - 0.5 *d.dot(Ki.dot(d))).T
+        
+                                       
     def set_mu(self, mu):
         self.mu = np.atleast_1d(mu).flatten()
         
@@ -53,30 +60,34 @@ class mvnorm(object):
             rval.append(self.mu + self.L.dot(std_norm.ppf(component_cum_prob[r, :])))
         return np.array(rval)
     
-    def logpdf(self, x):
-        return self.log_pdf_and_grad(x, pdf = True, grad = False)
+    def logpdf(self, x, theano_expr = False):
+        if not theano_expr:
+            return self.log_pdf_and_grad(x, pdf = True, grad = False)
+        else:
+            import theano.tensor as T
+            return self.log_pdf_and_grad(x, pdf = True, grad = False, T=T)
     
     def logpdf_grad(self, x):
         return self.log_pdf_and_grad(x, pdf = False, grad = True)
     
-    def log_pdf_and_grad(self, x, pdf = True, grad = True):
+    def log_pdf_and_grad(self, x, pdf = True, grad = True, T = np):
         assert(pdf or grad)
         
-        x = np.atleast_2d(x)
-        if x.shape[1] == self.mu.size:
-            x = x.T
-        else:
+        if T == np:
+            x = np.atleast_2d(x)
+            if x.shape[1] != self.mu.size:
+                x = x.T
             assert(np.sum(np.array(x.shape) == self.mu.size)>=1)
         
-        d = x - np.atleast_2d(self.mu).T
+        d = (x - self.mu.reshape((1 ,self.mu.size))).T
 
-        Ki_d = self.Ki.dot(d)        #vector
+        Ki_d = T.dot(self.Ki, d)        #vector
         
         if pdf:
             # vector times vector
             res_pdf = (self.lpdf_const - 0.5 * diag_dot(d.T, Ki_d)).T
             if res_pdf.size == 1:
-                res_pdf = np.float(res_pdf)
+                res_pdf = T.float(res_pdf)
             if not grad:
                 return res_pdf
         if grad:
@@ -115,6 +126,7 @@ class mvt(object):
         self.df = df
         self.dim = K.shape[0]
         self._df_dim = self.df + self.dim
+        #(self.Ki,  self.logdet) = (np.linalg.inv(K), np.linalg.slogdet(K)[1])
         (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         
         self._freeze_chi2 = stats.chi2(self.df)
@@ -139,37 +151,41 @@ class mvt(object):
             rval.append(self.mu + samp_mvt_0mu)
         return np.array(rval)
     
-    def logpdf(self, x):
-        return self.log_pdf_and_grad(x, pdf = True, grad = False)
+    def logpdf(self, x, theano_expr = False):
+        if not theano_expr:
+            return self.log_pdf_and_grad(x, pdf = True, grad = False)
+        else:
+            import theano.tensor as T
+            return self.log_pdf_and_grad(x, pdf = True, grad = False, T=T)
     
     def logpdf_grad(self, x):
         return self.log_pdf_and_grad(x, pdf = False, grad = True)
     
-    def log_pdf_and_grad(self, x, pdf = True, grad = True):
+    def log_pdf_and_grad(self, x, pdf = True, grad = True, T = np):
         assert(pdf or grad)
         
-        x = np.atleast_2d(x)
-        if x.shape[1] == self.mu.size:
-            x = x.T
-        else:
+        if T == np:
+            x = T.atleast_2d(x)
+            if x.shape[1] != self.mu.size:
+                x = x.T
             assert(x.shape[1] == self.mu.size
-                   or x.shape[0] == self.mu.size)
+                       or x.shape[0] == self.mu.size)
         
-        d = x - np.atleast_2d(self.mu).T
-        Ki_d_scal = self.Ki.dot(d) / self.df          #vector
+        d = (x - self.mu.reshape((1 ,self.mu.size))).T
+        Ki_d_scal = T.dot(self.Ki, d) / self.df          #vector
         d_Ki_d_scal_1 = diag_dot(d.T, Ki_d_scal) + 1. #scalar
         
         if pdf:
             # purely scalar multiplication
             res_pdf = (self.lpdf_const 
-                       - 0.5 * self._df_dim * log(d_Ki_d_scal_1)).flatten() 
+                       - 0.5 * self._df_dim * T.log(d_Ki_d_scal_1)).flatten() 
             if res_pdf.size == 1:
-                res_pdf = np.float(res_pdf)
+                res_pdf = T.float(res_pdf)
             if not grad:
                 return res_pdf
         if grad:
             #scalar times vector
-            res_grad = -self._df_dim/np.atleast_2d(d_Ki_d_scal_1).T * Ki_d_scal.T
+            res_grad = -self._df_dim/T.atleast_2d(d_Ki_d_scal_1).T * Ki_d_scal.T
             
             if res_grad.shape[0] <= 1:
                 res_grad = res_grad.flatten()
