@@ -35,6 +35,10 @@ class mvnorm(object):
         
         self.mu = mu
         self.K = K
+        (val, vec) = np.linalg.eigh(K)
+        idx = np.arange(mu.size-1,-1,-1)
+        (self.eigval, self.eigvec) = (np.diag(val[idx]), vec[:,idx])
+        self.eig = self.eigvec.dot(np.sqrt(self.eigval))
         self.dim = K.shape[0]
         #(self.Ki, self.logdet) = (np.linalg.inv(K), np.linalg.slogdet(K)[1])
         (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
@@ -46,18 +50,26 @@ class mvnorm(object):
 #        T.matrix("log")
 #        d = x - np.atleast_2d(self.mu).T
 #        return (self.lpdf_const - 0.5 *d.dot(Ki.dot(d))).T
-        
+
+    def get_num_unif(self):
+        return self.dim
                                        
     def set_mu(self, mu):
         self.mu = np.atleast_1d(mu).flatten()
         
-    def ppf(self, component_cum_prob):
-        assert(component_cum_prob.shape[1] == self.dim)
+    def ppf(self, component_cum_prob, eig = False):
+        assert(component_cum_prob.shape[1] == self.get_num_unif())
         #this is a pointwise ppf
-        std_norm = stats.norm(0, 1)
+        std_norm_dist = stats.norm(0, 1)
         rval = []
         for r in range(component_cum_prob.shape[0]):
-            rval.append(self.mu + self.L.dot(std_norm.ppf(component_cum_prob[r, :])))
+            std_norm = std_norm_dist.ppf(component_cum_prob[r, :])
+            if  eig:
+                rval.append(self.mu + (self.eig.dot(std_norm)))
+                #assert()
+            else:
+                rval.append(self.mu + self.L.dot(std_norm))
+            
         return np.array(rval)
     
     def logpdf(self, x, theano_expr = False):
@@ -99,8 +111,8 @@ class mvnorm(object):
                 return res_grad
         return (res_pdf, res_grad)    
     
-    def rvs(self, n=1):
-        rval = self.ppf(stats.uniform.rvs(size = (n, self.dim)))
+    def rvs(self, n=1, eig=False):
+        rval = self.ppf(stats.uniform.rvs(size = (n, self.dim)), eig=eig)
         if n == 1:
             return rval.flatten()
         else:
@@ -135,13 +147,15 @@ class mvt(object):
                                      + (log(self.df)+log(np.pi)) * self.dim*0.5
                                      + self.logdet * 0.5)
                                    )
-    
+    def get_num_unif(self):
+        return self.dim + 1
+        
     def set_mu(self, mu):
         self.mu = np.atleast_1d(mu).flatten()
         
     def ppf(self, component_cum_prob):
         #this is a pointwise ppf
-        assert(component_cum_prob.shape[1] == self.dim + 1)
+        assert(component_cum_prob.shape[1] == self.get_num_unif())
         std_norm = stats.norm(0, 1)
         rval = []
         for r in range(component_cum_prob.shape[0]):

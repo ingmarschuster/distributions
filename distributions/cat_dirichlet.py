@@ -21,6 +21,9 @@ class categorical(object):
         if np.abs(1-exp(logsumexp(self.lp))) >= 10**-7:
             raise ValueError("the probability vector does not sum to 1")
         self.cum_lp = np.array([logsumexp(self.lp[:i]) for i in range(1, len(self.lp)+1)])
+    
+    def get_num_unif(self):
+        return 1    
         
     def ppf(self, x, indic = False, x_in_logspace = False):
         if not x_in_logspace:

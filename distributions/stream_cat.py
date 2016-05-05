@@ -37,7 +37,10 @@ class stream_categorical(object):
         self.cum_lp = np.zeros(planned_size)
         self.cur_size = len(unnorm_initial_logprobs)
         self.cum_lp[:len(unnorm_initial_logprobs)] = logcumsumexp(unnorm_initial_logprobs)
-    
+        
+    def get_num_unif(self):
+        return 1
+        
     def ppf(self, x, indic = False, x_in_logspace = False):
         if not x_in_logspace:
             x = log(x)
