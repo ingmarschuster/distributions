@@ -10,7 +10,7 @@ from .linalg import pdinv, diag_dot
 
 import sys
 
-__all__ = ["mvnorm", "mvt"]
+__all__ = ["mvnorm", "mvt", "mvt_logpdf", 'mvnorm_logpdf_theano', 'mvt_logpdf_theano']
 
 def shape_match_1d(y, x):
     """
@@ -25,6 +25,34 @@ def shape_match_1d(y, x):
     new_sh = np.ones(sh.shape)
     new_sh[sh] = y.shape
     return np.reshape(y, new_sh)
+
+
+def mvnorm_logpdf_theano(x, mu = None, Li = None):
+    """
+    Parameters
+    ++++++++++
+    mu - mean of MVN, if not given assume zero mean
+    Li - inverse of lower cholesky
+    """
+    
+    import theano.tensor as T
+    dim = Li.shape[0]
+    Ki = Li.T.dot(Li)
+    #determinant is just multiplication of diagonal elements of cholesky
+    logdet = 2*T.log(1./T.diag(Li)).sum()
+    lpdf_const = -0.5 * T.flatten(dim * T.log(2 * np.pi) + logdet)[0]
+    if mu is None:
+        d = T.reshape(x, (dim, 1))
+    else:
+        d = (x - mu.reshape((1 ,dim))).T
+
+    Ki_d = T.dot(Ki, d)        #vector
+    
+    res_pdf = (lpdf_const - 0.5 * diag_dot(d.T, Ki_d)).T
+    if res_pdf.size == 1:
+        res_pdf = T.float(res_pdf)
+    return res_pdf 
+    
 
 class mvnorm(object):
     def __init__(self, mu, K, Ki = None, logdet_K = None, L = None): 
@@ -99,7 +127,7 @@ class mvnorm(object):
             # vector times vector
             res_pdf = (self.lpdf_const - 0.5 * diag_dot(d.T, Ki_d)).T
             if res_pdf.size == 1:
-                res_pdf = T.float(res_pdf)
+                res_pdf = res_pdf.flat[0]
             if not grad:
                 return res_pdf
         if grad:
@@ -126,6 +154,59 @@ class mvnorm(object):
             return mvnorm(mu, var)
         else:
             return (mu, var)
+
+
+def mvt_logpdf(x, mu, Li, df):
+    dim = Li.shape[0]
+    Ki = Li.T.dot(Li)
+
+    #determinant is just multiplication of diagonal elements of cholesky
+    logdet = 2*log(1./np.diag(Li)).sum()
+    lpdf_const = np.float(gammaln((df + dim) / 2)
+                                   -(gammaln(df/2)
+                                     + (log(df)+log(np.pi)) * dim*0.5
+                                     + logdet * 0.5)
+                                   )
+    print('standalone',lpdf_const,logdet,Ki)
+    x = np.atleast_2d(x)
+    if x.shape[1] != mu.size:
+        x = x.T
+    assert(x.shape[1] == mu.size
+               or x.shape[0] == mu.size)
+    
+    d = (x - mu.reshape((1 ,mu.size))).T
+    
+    Ki_d_scal = np.dot(Ki, d) /df          #vector
+    d_Ki_d_scal_1 = diag_dot(d.T, Ki_d_scal) + 1. #scalar
+    
+
+    res_pdf = (lpdf_const 
+               - 0.5 * (df + dim) * np.log(d_Ki_d_scal_1)).flatten() 
+    if res_pdf.size == 1:
+        res_pdf = np.float(res_pdf)
+    return res_pdf
+
+def mvt_logpdf_theano(x, mu, Li, df):
+    import theano.tensor as T
+    dim = Li.shape[0]
+    Ki = Li.T.dot(Li)
+    #determinant is just multiplication of diagonal elements of cholesky
+    logdet = 2*T.log(1./T.diag(Li)).sum()
+    lpdf_const = (T.gammaln((df + dim) / 2)
+                       -(T.gammaln(df/2)
+                         + (T.log(df)+T.log(np.pi)) * dim*0.5
+                         + logdet * 0.5)
+                       )
+
+    d = (x - mu.reshape((1 ,mu.size))).T
+    Ki_d_scal = T.dot(Ki, d) / df          #vector
+    d_Ki_d_scal_1 = diag_dot(d.T, Ki_d_scal) + 1. #scalar
+    
+    res_pdf = (lpdf_const 
+               - 0.5 * (df+dim) * T.log(d_Ki_d_scal_1)).flatten() 
+    if res_pdf.size == 1:
+        res_pdf = T.float(res_pdf)
+    return res_pdf 
 
 class mvt(object):
     def __init__(self, mu, K, df, Ki = None, logdet_K = None, L = None):
@@ -194,7 +275,7 @@ class mvt(object):
             res_pdf = (self.lpdf_const 
                        - 0.5 * self._df_dim * T.log(d_Ki_d_scal_1)).flatten() 
             if res_pdf.size == 1:
-                res_pdf = T.float(res_pdf)
+                res_pdf = res_pdf.flat[0]
             if not grad:
                 return res_pdf
         if grad:

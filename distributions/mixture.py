@@ -8,11 +8,11 @@ from scipy.misc import logsumexp
 import scipy.stats as stats
 from .linalg import pdinv, diag_dot
 from .cat_dirichlet import categorical
-from .mvn_mvt import mvnorm
+from .mvn_mvt import mvnorm, mvt
 
 import sys
 
-__all__ = ["mixt", "NPGMM", "GMM"]
+__all__ = ["mixt", "NPGMM", "GMM", "TMM"]
 
 class mixt(object):
     def __init__(self, dim, comp_dists, comp_weights, comp_w_in_logspace = False):
@@ -157,5 +157,58 @@ class GMM(object):
     
     def rvs(self, num_samples=1):
         rval = self.ppf(stats.uniform.rvs(0, 1, (num_samples, self.dim + 1)))
+        if num_samples == 1 and len(rval.shape) > 1:
+            return rval[0]
+
+
+class TMM(object):
+    def __init__(self, num_components, dim, df, samples = None):
+        self.num_components = num_components
+        self.dim = dim
+        self.df = df
+        if samples is not None:
+            self.fit(samples)
+            
+    def get_num_unif(self):
+        return self.dim + 2
+    
+    def fit(self, samples):
+        import sklearn.mixture
+        m = sklearn.mixture.GMM(self.num_components, "full")
+        m.fit(samples)
+        self.comp_lprior = log(m.weights_)
+        self.dist_cat = categorical(exp(self.comp_lprior))
+        self.comp_dist = [mvt(m.means_[i], m.covars_[i], self.df) for i in range(self.comp_lprior.size)]
+        self.dim = m.means_[0].size
+        #self._e_step()
+        if False:        
+            old = -1
+            i = 0
+            while not np.all(old == self.resp):
+                i += 1
+                old = self.resp.copy()
+                self._e_step()
+                self._m_step()
+                print(np.sum(old == self.resp)/self.resp.size)
+            #print("Convergence after",i,"iterations")
+            self.dist_cat = categorical(exp(self.comp_lprior))
+       
+    def ppf(self, component_cum_prob, eig=True):
+        assert(component_cum_prob.shape[1] == self.get_num_unif())
+        rval = []
+        for i in range(component_cum_prob.shape[0]):
+            r = component_cum_prob[i,:]
+            comp = self.dist_cat.ppf(r[0])
+            rval.append(self.comp_dist[comp].ppf(np.atleast_2d(r[1:])))
+        return np.array(rval).reshape((component_cum_prob.shape[0], self.dim))
+    
+    def logpdf(self, x):
+        rval = np.array([self.comp_lprior[i]+ self.comp_dist[i].logpdf(x)
+                              for i in range(self.comp_lprior.size)])
+        rval = logsumexp(rval, 0).flatten()
+        return rval
+    
+    def rvs(self, num_samples=1):
+        rval = self.ppf(stats.uniform.rvs(0, 1, (num_samples, self.get_num_unif())))
         if num_samples == 1 and len(rval.shape) > 1:
             return rval[0]
