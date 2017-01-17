@@ -7,19 +7,26 @@ Created on Tue Jun 28 09:28:49 2016
 
 from __future__ import division, print_function, absolute_import
 
-import numpy as np
-import scipy as sp
-import scipy.stats as stats
+import autograd.numpy as np
+import autograd.scipy as sp
+import autograd.scipy.stats as stats
 
-from numpy import exp, log, sqrt
-from scipy.misc import logsumexp
-from numpy.linalg import inv
+from autograd.numpy import exp, log, sqrt
+from autograd.scipy.misc import logsumexp
+from autograd.numpy.linalg import inv
 import theano.tensor as T #FIXME: shouldnt be a requirement
 import theano
 
 
-__all__ = ["gamma_logpdf_theano", "gamma", "invgamma_logpdf_theano", "invgamma"]
+__all__ = ["gamma_logpdf_theano", "gamma_logpdf", "gamma", "invgamma_logpdf_theano", "invgamma"]
 
+def gamma_logpdf(x, shape, rate):    
+    if np.any(x <= 0):
+        return -np.infty
+    return (  np.log(rate) * shape
+            - sp.special.gammaln(shape)
+            + np.log(x) * (shape-1)
+            - rate * x)
 def gamma_logpdf_theano(x, shape, rate):    
     return (  T.log(rate) * shape
             - T.gammaln(shape)

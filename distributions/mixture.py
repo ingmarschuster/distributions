@@ -37,6 +37,14 @@ class mixt(object):
                               for i in range(len(self.comp_dist))])
         rval = logsumexp(rval, 0).flatten()
         return rval
+     
+    def logpdf_grad(self, x):
+        rval = np.array([exp(self.dist_cat.logpdf(i))* self.comp_dist[i].logpdf_grad(x)
+                              for i in range(len(self.comp_dist))])
+
+        rval = logsumexp(rval, 0)
+        
+        return rval
     
     def rvs(self, num_samples=1):
         rval = np.array([self.comp_dist[i].rvs(1) for i in self.dist_cat.rvs(num_samples)])

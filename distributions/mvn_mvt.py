@@ -1,16 +1,16 @@
 from __future__ import division, print_function, absolute_import
-import numpy as np
-from numpy import log, exp
-import numpy.random as npr
-from numpy.linalg import inv, cholesky
-from scipy.special import multigammaln, gammaln
+import autograd.numpy as np
+from autograd.numpy import log, exp
+import autograd.numpy.random as npr
+from autograd.numpy.linalg import inv, cholesky
+from autograd.scipy.special import multigammaln, gammaln
 from scipy.stats import chi2
 import scipy.stats as stats
 from .linalg import pdinv, diag_dot
 
 import sys
 
-__all__ = ["mvnorm", "mvt", "mvt_logpdf", 'mvnorm_logpdf_theano', 'mvt_logpdf_theano']
+__all__ = ["mvnorm", "mvdiagnorm", "mvt", "mvt_logpdf", "mvt_rvs", "mvt_ppf", 'mvnorm_logpdf', 'mvnorm_logpdf_theano', 'mvt_logpdf_theano']
 
 def shape_match_1d(y, x):
     """
@@ -52,8 +52,79 @@ def mvnorm_logpdf_theano(x, mu = None, Li = None):
     if res_pdf.size == 1:
         res_pdf = T.float(res_pdf)
     return res_pdf 
-    
 
+def mvnorm_logpdf(x, mu = None, Li = None):
+    """
+    Parameters
+    ++++++++++
+    mu - mean of MVN, if not given assume zero mean
+    Li - inverse of lower cholesky
+    """
+    
+    import autograd.numpy as T
+    dim = Li.shape[0]
+    Ki = np.dot(Li.T, Li)
+    #determinant is just multiplication of diagonal elements of cholesky
+    logdet = 2*T.log(1./T.diag(Li)).sum()
+    lpdf_const = -0.5 * (dim * T.log(2 * np.pi) + logdet)
+    if mu is None:
+        d = T.reshape(x, (dim, 1))
+    else:
+        d = (x - mu.reshape((1 ,dim))).T
+
+    Ki_d = T.dot(Ki, d)        #vector
+    
+    res_pdf = (lpdf_const - 0.5 * diag_dot(d.T, Ki_d)).T
+    if res_pdf.size == 1:
+        res_pdf = res_pdf[0]
+    return res_pdf 
+    
+def mvnorm_diag_logpdf_theano(x, mu = None, Li = None):
+    """
+    Parameters
+    ++++++++++
+    mu - mean of MVN, if not given assume zero mean
+    Li - inverse of lower cholesky
+    """
+    
+    import theano.tensor as T
+    dim = Li.size
+    Ki = Li**2
+    #determinant is just multiplication of diagonal elements of cholesky
+    logdet = 2*T.log(1./Li).sum()
+    lpdf_const = -0.5 * T.flatten(dim * T.log(2 * np.pi) + logdet)[0]
+    if mu is None:
+        d = T.reshape(x, (dim, 1))
+    else:
+        d = (x - mu.reshape((1 ,dim))).T
+
+    Ki_d = T.dot(Ki, d)        #vector
+    
+    res_pdf = (lpdf_const - 0.5 * diag_dot(d.T, Ki_d)).T
+    if res_pdf.size == 1:
+        res_pdf = T.float(res_pdf)
+    return res_pdf     
+
+class mvdiagnorm(object):
+    def __init__(self, mu, var):
+        self.norm_const = - 0.5*np.log(2*np.pi)
+        self.mu = np.atleast_1d(mu).flatten()
+        self.var = np.atleast_1d(var).flatten() 
+        self.dim = np.prod(self.var.shape)
+        assert(self.mu.shape == self.var.shape)
+        self.std = np.sqrt(var)
+        self.logstd = np.log(self.std)
+
+    def get_num_unif(self):
+        return self.dim
+                                       
+    def set_mu(self, mu):
+        self.mu = np.atleast_1d(mu).flatten()
+    
+    def logpdf(self, x):
+        xcent2d2 = (x-self.mu)**2/2
+        return self.norm_const - self.logstd - xcent2d2/self.var
+    
 class mvnorm(object):
     def __init__(self, mu, K, Ki = None, logdet_K = None, L = None): 
         mu = np.atleast_1d(mu).flatten()
@@ -127,7 +198,7 @@ class mvnorm(object):
             # vector times vector
             res_pdf = (self.lpdf_const - 0.5 * diag_dot(d.T, Ki_d)).T
             if res_pdf.size == 1:
-                res_pdf = res_pdf.flat[0]
+                res_pdf = res_pdf.reshape(res_pdf.size)[0]
             if not grad:
                 return res_pdf
         if grad:
@@ -158,16 +229,16 @@ class mvnorm(object):
 
 def mvt_logpdf(x, mu, Li, df):
     dim = Li.shape[0]
-    Ki = Li.T.dot(Li)
+    Ki = np.dot(Li.T, Li)
 
     #determinant is just multiplication of diagonal elements of cholesky
     logdet = 2*log(1./np.diag(Li)).sum()
-    lpdf_const = np.float(gammaln((df + dim) / 2)
+    lpdf_const = (gammaln((df + dim) / 2)
                                    -(gammaln(df/2)
                                      + (log(df)+log(np.pi)) * dim*0.5
                                      + logdet * 0.5)
                                    )
-    print('standalone',lpdf_const,logdet,Ki)
+
     x = np.atleast_2d(x)
     if x.shape[1] != mu.size:
         x = x.T
@@ -185,6 +256,24 @@ def mvt_logpdf(x, mu, Li, df):
     if res_pdf.size == 1:
         res_pdf = np.float(res_pdf)
     return res_pdf
+
+def mvt_ppf(component_cum_prob, mu, L, df):
+    from scipy.stats import norm, chi2
+    mu = np.atleast_1d(mu).flatten()
+    assert(component_cum_prob.shape[1] == mu.size+1)
+    L = np.atleast_2d(L)
+    rval = []
+    for r in range(component_cum_prob.shape[0]):
+        samp_mvn_0mu = L.dot(norm.ppf(component_cum_prob[r, :-1]))
+        samp_chi2 = chi2.ppf(component_cum_prob[r, -1], df)
+        samp_mvt_0mu = samp_mvn_0mu * np.sqrt(df / samp_chi2)
+        rval.append(mu + samp_mvt_0mu)
+    return np.array(rval)
+
+def mvt_rvs(n, mu, L, df):
+    from scipy.stats import uniform
+    mu = np.atleast_1d(mu).flatten()
+    return mvt_ppf(uniform.rvs(size = (n, mu.size+1)), mu, L, df)
 
 def mvt_logpdf_theano(x, mu, Li, df):
     import theano.tensor as T
@@ -217,12 +306,13 @@ class mvt(object):
         self.mu = mu
         self.K = K
         self.df = df
+        self._freeze_chi2 = stats.chi2(df)
         self.dim = K.shape[0]
         self._df_dim = self.df + self.dim
         #(self.Ki,  self.logdet) = (np.linalg.inv(K), np.linalg.slogdet(K)[1])
         (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         
-        self._freeze_chi2 = stats.chi2(self.df)
+        
         self.lpdf_const = np.float(gammaln((self.df + self.dim) / 2)
                                    -(gammaln(self.df/2)
                                      + (log(self.df)+log(np.pi)) * self.dim*0.5
@@ -233,6 +323,10 @@ class mvt(object):
         
     def set_mu(self, mu):
         self.mu = np.atleast_1d(mu).flatten()
+        
+    def set_df(self, df):
+        self.df = df
+        self._freeze_chi2 = stats.chi2(df)
         
     def ppf(self, component_cum_prob):
         #this is a pointwise ppf
