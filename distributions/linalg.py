@@ -10,7 +10,7 @@
 
 
 import numpy as np
-from scipy import linalg, weave
+from scipy import linalg
 import types
 import ctypes
 from ctypes import byref, c_char, c_int, c_double # TODO
@@ -116,17 +116,17 @@ def jitchol(A, maxtries=5):
     else:
         diagA = np.diag(A)
         if np.any(diagA <= 0.):
-            raise linalg.LinAlgError, "not pd: non-positive diagonal elements"
+            raise linalg.LinAlgError( "not pd: non-positive diagonal elements")
         jitter = diagA.mean() * 1e-6
         while maxtries > 0 and np.isfinite(jitter):
-            print 'Warning: adding jitter of {:.10e}'.format(jitter)
+            print('Warning: adding jitter of {:.10e}'.format(jitter))
             try:
                 return linalg.cholesky(A + np.eye(A.shape[0]).T * jitter, lower=True)
             except:
                 jitter *= 10
             finally:
                 maxtries -= 1
-        raise linalg.LinAlgError, "not positive definite, even with jitter."
+        raise linalg.LinAlgError("not positive definite, even with jitter.")
 
 
 
@@ -144,16 +144,16 @@ def jitchol_old(A, maxtries=5):
     except linalg.LinAlgError:
         diagA = np.diag(A)
         if np.any(diagA < 0.):
-            raise linalg.LinAlgError, "not pd: negative diagonal elements"
+            raise linalg.LinAlgError( "not pd: negative diagonal elements")
         jitter = diagA.mean() * 1e-6
         for i in range(1, maxtries + 1):
-            print '\rWarning: adding jitter of {:.10e}                        '.format(jitter),
+            print('\rWarning: adding jitter of {:.10e}                        '.format(jitter))
             try:
                 return linalg.cholesky(A + np.eye(A.shape[0]).T * jitter, lower=True)
             except:
                 jitter *= 10
 
-        raise linalg.LinAlgError, "not positive definite, even with jitter."
+        raise linalg.LinAlgError("not positive definite, even with jitter.")
 
 def pdinv(A, *args):
     """
@@ -218,7 +218,7 @@ def pca(Y, input_dim):
     :rval W: - input_dimxD mapping from X to Y
     """
     if not np.allclose(Y.mean(axis=0), 0.0):
-        print "Y is not zero mean, centering it locally (GPy.util.linalg.pca)"
+        print("Y is not zero mean, centering it locally (GPy.util.linalg.pca)")
 
         # Y -= Y.mean(axis=0)
 
@@ -335,7 +335,7 @@ def ppca_missing_data_at_random(Y, Q, iters=100):
         import ipdb;ipdb.set_trace()
         if debug:
             #print Sigma[0]
-            print "nu:", nu, "sum(X):", X.sum()
+            print("nu:", nu, "sum(X):", X.sum())
             pred_y = X.dot(W)
             for x, l in zip(pred_y.T, lines):
                 l.set_ydata(x)
@@ -432,83 +432,10 @@ def DSYR(*args, **kwargs):
     else:
         return DSYR_numpy(*args, **kwargs)
 
-def symmetrify(A, upper=False):
-    """
-    Take the square matrix A and make it symmetrical by copting elements from the lower half to the upper
-    works IN PLACE.
-    """
-    N, M = A.shape
-    assert N == M
-    
-    c_contig_code = """
-    int iN;
-    for (int i=1; i<N; i++){
-      iN = i*N;
-      for (int j=0; j<i; j++){
-        A[i+j*N] = A[iN+j];
-      }
-    }
-    """
-    f_contig_code = """
-    int iN;
-    for (int i=1; i<N; i++){
-      iN = i*N;
-      for (int j=0; j<i; j++){
-        A[iN+j] = A[i+j*N];
-      }
-    }
-    """
-
-    N = int(N) # for safe type casting
-    if A.flags['C_CONTIGUOUS'] and upper:
-        weave.inline(f_contig_code, ['A', 'N'], extra_compile_args=['-O3'])
-    elif A.flags['C_CONTIGUOUS'] and not upper:
-        weave.inline(c_contig_code, ['A', 'N'], extra_compile_args=['-O3'])
-    elif A.flags['F_CONTIGUOUS'] and upper:
-        weave.inline(c_contig_code, ['A', 'N'], extra_compile_args=['-O3'])
-    elif A.flags['F_CONTIGUOUS'] and not upper:
-        weave.inline(f_contig_code, ['A', 'N'], extra_compile_args=['-O3'])
-    else:
-        if upper:
-            tmp = np.tril(A.T)
-        else:
-            tmp = np.tril(A)
-        A[:] = 0.0
-        A += tmp
-        A += np.tril(tmp, -1).T
-
-
 def symmetrify_murray(A):
     A += A.T
     nn = A.shape[0]
     A[[range(nn), range(nn)]] /= 2.0
-
-def cholupdate(L, x):
-    """
-    update the LOWER cholesky factor of a pd matrix IN PLACE
-    if L is the lower chol. of K, then this function computes L\_
-    where L\_ is the lower chol of K + x*x^T
-    """
-    support_code = """
-    #include <math.h>
-    """
-    code = """
-    double r,c,s;
-    int j,i;
-    for(j=0; j<N; j++){
-      r = sqrt(L(j,j)*L(j,j) + x(j)*x(j));
-      c = r / L(j,j);
-      s = x(j) / L(j,j);
-      L(j,j) = r;
-      for (i=j+1; i<N; i++){
-        L(i,j) = (L(i,j) + s*x(i))/c;
-        x(i) = c*x(i) - s*L(i,j);
-      }
-    }
-    """
-    x = x.copy()
-    N = x.size
-    weave.inline(code, support_code=support_code, arg_names=['N', 'L', 'x'], type_converters=weave.converters.blitz)
 
 def backsub_both_sides(L, X, transpose='left'):
     """ Return L^-T * X * L^-1, assumuing X is symmetrical and L is lower cholesky"""
