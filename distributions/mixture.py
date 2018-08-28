@@ -1,11 +1,11 @@
 from __future__ import division, print_function, absolute_import
-import numpy as np
-from numpy import log, exp
+import autograd.numpy as np
+from  autograd.numpy import log, exp
 import numpy.random as npr
-from numpy.linalg import inv, cholesky
-from scipy.special import multigammaln, gammaln
-from scipy.misc import logsumexp
-import scipy.stats as stats
+from  autograd.numpy.linalg import inv, cholesky
+from  autograd.scipy.special import multigammaln, gammaln
+from  autograd.scipy.misc import logsumexp
+from  autograd.scipy import stats as stats
 from .linalg import pdinv, diag_dot
 from .cat_dirichlet import categorical
 from .mvn_mvt import mvnorm, mvt
@@ -33,9 +33,52 @@ class mixt(object):
         return np.array(rval).reshape((component_cum_prob.shape[0], self.dim))
     
     def logpdf(self, x):
-        rval = np.array([self.dist_cat.logpdf(i)+ self.comp_dist[i].logpdf(x)
+        comp_logpdf = np.array([self.dist_cat.logpdf(i)+ self.comp_dist[i].logpdf(x)
                               for i in range(len(self.comp_dist))])
-        rval = logsumexp(rval, 0).flatten()
+        rval = logsumexp(comp_logpdf, 0)
+        if len(comp_logpdf.shape) > 1:
+            rval = rval.reshape((rval.size, 1))
+        return rval
+     
+    def logpdf_grad(self, x):
+        rval = np.array([exp(self.dist_cat.logpdf(i))* self.comp_dist[i].logpdf_grad(x)
+                              for i in range(len(self.comp_dist))])
+
+        rval = logsumexp(rval, 0)
+        
+        return rval
+    
+    def rvs(self, num_samples=1):
+        rval = np.array([self.comp_dist[i].rvs(1) for i in self.dist_cat.rvs(num_samples)])
+        if num_samples == 1 and len(rval.shape) > 1:
+            return rval[0]
+        else:
+            return rval
+
+class SmoothMixt(object):
+    def __init__(self, dim, comp_dists, weightfunc):
+        self.dim = dim
+        self.comp_dist = comp_dists
+        self.weightfunc = weightfunc
+
+    def get_num_unif(self):
+        return self.dim
+    
+    def ppf(self, component_cum_prob, eig=True):
+        assert(component_cum_prob.shape[1] == self.get_num_unif())
+        rval = []
+        for i in range(component_cum_prob.shape[0]):
+            r = component_cum_prob[i,:]
+            comp = self.dist_cat.ppf(r[0])
+            rval.append(self.comp_dist[comp].ppf(np.atleast_2d(r[1:]), eig=True))
+        return np.array(rval).reshape((component_cum_prob.shape[0], self.dim))
+    
+    def logpdf(self, x):
+        comp_logpdf = np.array([self.dist_cat.logpdf(i)+ self.comp_dist[i].logpdf(x)
+                              for i in range(len(self.comp_dist))])
+        rval = logsumexp(comp_logpdf, 0)
+        if len(comp_logpdf.shape) > 1:
+            rval = rval.reshape((rval.size, 1))
         return rval
      
     def logpdf_grad(self, x):
