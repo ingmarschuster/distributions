@@ -14,8 +14,8 @@ import autograd.scipy.stats as stats
 from autograd.numpy import exp, log, sqrt
 from autograd.scipy.misc import logsumexp
 from autograd.numpy.linalg import inv
-import theano.tensor as T #FIXME: shouldnt be a requirement
-import theano
+#import theano.tensor as T #FIXME: shouldnt be a requirement
+#import theano
 
 
 __all__ = ["gamma_logpdf_theano", "gamma_logpdf", "gamma", "invgamma_logpdf_theano", "invgamma"]

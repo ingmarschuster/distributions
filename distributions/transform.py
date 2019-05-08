@@ -19,6 +19,19 @@ from numpy.linalg import inv
 __all__ = ["CompTransform", "softplus", "Power", "Shift", "NegateDim", 'TimesFirst', "DivByFirst", "Separate"]
 
 
+def get_comptransf_logpdf(logpdf, transform_backw, transform_backw_grad):
+    def rval(rvs_transf):
+        rvs_transf = np.atleast_2d(rvs_transf)
+        rvs_orig = np.copy(rvs_transf)
+        rvs_orig = transform_backw(rvs_transf)
+        rval = np.atleast_1d(logpdf(rvs_orig))
+        correction = np.log(np.abs(transform_backw_grad(rvs_transf))).sum(1)
+        assert(len(correction) == len(rval))
+        if len(correction.shape) < len(rval.shape):
+            correction = correction[:, np.newaxis]
+        return rval + correction
+    return rval
+
 class CompTransform(object):
     def __init__(self, wrapped_distribution, transform_components_at_index, transform_forw, transform_backw, transform_backw_grad):        
         assert(len(transform_components_at_index) > 0)
@@ -85,7 +98,7 @@ class Separate(object):
                     - ((-y*(y < 0))**(1./power) - ridge)*(y < 0))
         def backward_grad(y):
             return (  (( y*(y > 0))**(1./power-1)/power )*(y > 0) 
-                    )#- ((-y*(y < 0))**(1./power-1)/power-ridge)*(y < 0))
+                    - ((-y*(y < 0))**(1./power-1)/power )*(y < 0))
         self.transf = CompTransform(wrapped_distribution, transform_components_at_index,
                                     forward,
                                     backward,
@@ -176,15 +189,15 @@ class Power(object): # you can get the banana transform by choosing power == 2
         if pdf and not grad:
                return rval 
         if grad:
-            print("---")
-            print(rvs_transf)
+            #print("---")
+            #print(rvs_transf)
             if not pdf:
                 grad = rval           
             D = rvs_transf.shape[1]
             grad_correct = np.ones(D)
             grad_correct[self.idx] = self.b*self.power*rvs_transf[0,0]**(self.power - 1)
-            print(self.b, self.power,rvs_transf[0,0])
-            print(grad, grad_correct)
+            #print(self.b, self.power,rvs_transf[0,0])
+            #print(grad, grad_correct)
             if not pdf:
                 return grad*(grad_correct)
             else:
@@ -192,7 +205,7 @@ class Power(object): # you can get the banana transform by choosing power == 2
         return rval
 
 
-class TimesFirst(object): # you can get the banana transform by choosing power == 2
+class TimesFirst(object): 
     def __init__(self, wrapped_distribution, transform_components_at_index):
         if np.any(transform_components_at_index == 0):
             #first coordinate is untransformed
@@ -228,7 +241,7 @@ class TimesFirst(object): # you can get the banana transform by choosing power =
 
 
 
-class DivByFirst(object): # you can get the banana transform by choosing power == 2
+class DivByFirst(object):
     def __init__(self, wrapped_distribution, transform_components_at_index):
         if np.any(transform_components_at_index == 0):
             #first coordinate is untransformed

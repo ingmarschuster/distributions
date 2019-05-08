@@ -12,7 +12,42 @@ from .mvn_mvt import mvnorm, mvt
 
 import sys
 
-__all__ = ["mixt", "NPGMM", "GMM", "TMM"]
+__all__ = ["location_mixture_logpdf", "mixt", "NPGMM", "GMM", "TMM"]
+
+def location_mixture_logpdf(samps, locations, location_weights, distr_at_origin, contr_var = False, variant = 1):
+#    lpdfs = zeroprop.logpdf()
+    diff = samps - locations[:, np.newaxis, :]
+    lpdfs = distr_at_origin.logpdf(diff.reshape([np.prod(diff.shape[:2]), diff.shape[-1]])).reshape(diff.shape[:2])
+    logprop_weights = log(location_weights/location_weights.sum())[:, np.newaxis]
+    if not contr_var: 
+        return logsumexp(lpdfs + logprop_weights, 0)
+    #time_m1 = np.hstack([time0[:,:-1],time0[:,-1:]])
+    else:
+        time0 = lpdfs + logprop_weights + log(len(location_weights))
+        
+        if variant == 1:
+            time1 = np.hstack([time0[:,1:],time0[:,:1]])
+            cov = np.mean(time0**2-time0*time1)
+            var = np.mean((time0-time1)**2)
+            lpdfs = lpdfs  -    cov/var * (time0-time1)        
+            return logsumexp(lpdfs - log(len(location_weights)), 0)
+        elif variant == 2:
+            cvar = (time0[:,:,np.newaxis] - 
+                    np.dstack([np.hstack([time0[:, 1:], time0[:, :1]]),
+                               np.hstack([time0[:,-1:], time0[:,:-1]])]))
+
+            
+            ## self-covariance matrix of control variates
+            K_cvar = np.diag(np.mean(cvar**2, (0, 1)))
+            #add off diagonal
+            K_cvar = K_cvar + (1.-np.eye(2)) * np.mean(cvar[:,:,0]*cvar[:,:,1])
+            
+            ## covariance of control variates with random variable
+            cov = np.mean(time0[:,:,np.newaxis] * cvar, 0).mean(0)
+            
+            optimal_comb = np.linalg.inv(K_cvar) @ cov
+            lpdfs = lpdfs  -  cvar @ optimal_comb
+            return logsumexp(lpdfs - log(len(location_weights)), 0)
 
 class mixt(object):
     def __init__(self, dim, comp_dists, comp_weights, comp_w_in_logspace = False):
