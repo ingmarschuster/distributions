@@ -4,7 +4,7 @@ from numpy import log, exp
 import numpy.random as npr
 from numpy.linalg import inv, cholesky
 from scipy.special import multigammaln, gammaln
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 from scipy.stats import chi2
 import scipy.stats as stats
 

@@ -12,7 +12,7 @@ import autograd.scipy as sp
 import autograd.scipy.stats as stats
 
 from autograd.numpy import exp, log, sqrt
-from autograd.scipy.misc import logsumexp
+from autograd.scipy.special import logsumexp
 from autograd.numpy.linalg import inv
 #import theano.tensor as T #FIXME: shouldnt be a requirement
 #import theano

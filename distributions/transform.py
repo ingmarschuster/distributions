@@ -12,7 +12,7 @@ import scipy as sp
 import scipy.stats as stats
 
 from numpy import exp, log, sqrt
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 from numpy.linalg import inv
 
 

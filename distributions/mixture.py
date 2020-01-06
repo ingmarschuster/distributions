@@ -3,8 +3,7 @@ import autograd.numpy as np
 from  autograd.numpy import log, exp
 import numpy.random as npr
 from  autograd.numpy.linalg import inv, cholesky
-from  autograd.scipy.special import multigammaln, gammaln
-from  autograd.scipy.misc import logsumexp
+from  autograd.scipy.special import multigammaln, gammaln, logsumexp
 from  autograd.scipy import stats as stats
 from .linalg import pdinv, diag_dot
 from .cat_dirichlet import categorical
@@ -45,8 +44,8 @@ def location_mixture_logpdf(samps, locations, location_weights, distr_at_origin,
             ## covariance of control variates with random variable
             cov = np.mean(time0[:,:,np.newaxis] * cvar, 0).mean(0)
             
-            optimal_comb = np.linalg.inv(K_cvar) @ cov
-            lpdfs = lpdfs  -  cvar @ optimal_comb
+            optimal_comb = np.dot(np.linalg.inv(K_cvar), cov)
+            lpdfs = lpdfs  -  np.dlot(cvar, optimal_comb)
             return logsumexp(lpdfs - log(len(location_weights)), 0)
 
 class mixt(object):
