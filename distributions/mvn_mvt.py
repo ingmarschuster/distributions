@@ -1,9 +1,9 @@
 from __future__ import division, print_function, absolute_import
-import autograd.numpy as np
-from autograd.numpy import log, exp
-import autograd.numpy.random as npr
-from autograd.numpy.linalg import inv, cholesky
-from autograd.scipy.special import multigammaln, gammaln
+import jax.numpy as np
+from jax.numpy import log, exp
+import numpy.random as npr
+from jax.numpy.linalg import inv, cholesky
+from jax.scipy.special import multigammaln, gammaln
 from scipy.stats import chi2
 import scipy.stats as stats
 from .linalg import pdinv, diag_dot
@@ -142,7 +142,7 @@ class mvnorm(object):
         #(self.Ki, self.logdet) = (np.linalg.inv(K), np.linalg.slogdet(K)[1])
         (self.Ki, self.L, self.Li, self.logdet) = pdinv(K)
         
-        self.lpdf_const = -0.5 *np.float(self.dim * np.log(2 * np.pi)
+        self.lpdf_const = -0.5 *float(self.dim * np.log(2 * np.pi)
                                            + self.logdet)
 #    def get_theano_logp(self, X):
 #        import theano.tensor as T

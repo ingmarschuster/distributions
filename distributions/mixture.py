@@ -1,10 +1,10 @@
 from __future__ import division, print_function, absolute_import
-import autograd.numpy as np
-from  autograd.numpy import log, exp
+import jax.numpy as np
+from  jax.numpy import log, exp
 import numpy.random as npr
-from  autograd.numpy.linalg import inv, cholesky
-from  autograd.scipy.special import multigammaln, gammaln, logsumexp
-from  autograd.scipy import stats as stats
+from  jax.numpy.linalg import inv, cholesky
+from  jax.scipy.special import multigammaln, gammaln, logsumexp
+from  jax.scipy import stats as stats
 from .linalg import pdinv, diag_dot
 from .cat_dirichlet import categorical
 from .mvn_mvt import mvnorm, mvt

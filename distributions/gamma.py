@@ -7,13 +7,13 @@ Created on Tue Jun 28 09:28:49 2016
 
 from __future__ import division, print_function, absolute_import
 
-import autograd.numpy as np
-import autograd.scipy as sp
-import autograd.scipy.stats as stats
+import jax.numpy as np
+import jax.scipy as sp
+import jax.scipy.stats as stats
 
-from autograd.numpy import exp, log, sqrt
-from autograd.scipy.special import logsumexp
-from autograd.numpy.linalg import inv
+from jax.numpy import exp, log, sqrt
+from jax.scipy.special import logsumexp
+from jax.numpy.linalg import inv
 #import theano.tensor as T #FIXME: shouldnt be a requirement
 #import theano
 
