@@ -1,10 +1,11 @@
 from __future__ import division, print_function, absolute_import
-import jax.numpy as np
-from  jax.numpy import log, exp
+
+import numpy as np
+from  numpy import log, exp
 import numpy.random as npr
-from  jax.numpy.linalg import inv, cholesky
-from  jax.scipy.special import multigammaln, gammaln, logsumexp
-from  jax.scipy import stats as stats
+from  numpy.linalg import inv, cholesky
+from  scipy.special import multigammaln, gammaln, logsumexp
+from  scipy import stats as stats
 from .linalg import pdinv, diag_dot
 from .cat_dirichlet import categorical
 from .mvn_mvt import mvnorm, mvt
@@ -66,6 +67,7 @@ class mixt(object):
             rval.append(self.comp_dist[comp].ppf(np.atleast_2d(r[1:]), eig=True))
         return np.array(rval).reshape((component_cum_prob.shape[0], self.dim))
     
+  
     def logpdf(self, x):
         comp_logpdf = np.array([self.dist_cat.logpdf(i)+ self.comp_dist[i].logpdf(x)
                               for i in range(len(self.comp_dist))])
